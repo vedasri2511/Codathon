@@ -2,33 +2,72 @@ import React from "react";
 import ReactFlow from "reactflow";
 import "reactflow/dist/style.css";
 
-function Graph({ data }) {
-  const nodes = [
-    { id: "start", data: { label: "Start" }, position: { x: 250, y: 0 } }
-  ];
+const X_GAP = 230;
+const Y_GAP = 130;
 
+function buildGraphElements(tree) {
+  const nodes = [];
   const edges = [];
+  let cursor = 0;
 
-  data.children.forEach((child, i) => {
+  const safeTree = tree && typeof tree === "object" ? tree : { name: "Start", children: [] };
+
+  function walk(node, depth, parentId) {
+    const nodeId = `${parentId || "root"}-${nodes.length}`;
+    let x;
+    const children = Array.isArray(node.children) ? node.children : [];
+
+    if (children.length === 0) {
+      x = cursor * X_GAP;
+      cursor += 1;
+    } else {
+      const childXValues = children.map((child) => walk(child, depth + 1, nodeId));
+      x = childXValues.reduce((sum, value) => sum + value, 0) / childXValues.length;
+    }
+
+    const baseStyle = {
+      border: "1px solid #223",
+      borderRadius: 8,
+      minWidth: 120,
+      background: "#f4f6f8"
+    };
+
+    if (node.status === "considered") {
+      baseStyle.background = "#c8f7c5";
+    }
+
+    if (node.status === "eliminated") {
+      baseStyle.background = "#ffb3b3";
+    }
+
     nodes.push({
-      id: child.name,
-      data: { label: `${child.name} (${child.score})` },
-      position: { x: i * 200, y: 150 },
-      style: {
-        background: child.status === "eliminated" ? "red" : "lightgreen"
-      }
+      id: nodeId,
+      data: { label: node.name || "Path" },
+      position: { x, y: depth * Y_GAP },
+      style: baseStyle
     });
 
-    edges.push({
-      id: `e-${i}`,
-      source: "start",
-      target: child.name
-    });
-  });
+    if (parentId) {
+      edges.push({
+        id: `e-${parentId}-${nodeId}`,
+        source: parentId,
+        target: nodeId
+      });
+    }
+
+    return x;
+  }
+
+  walk(safeTree, 0, null);
+  return { nodes, edges };
+}
+
+function Graph({ data }) {
+  const { nodes, edges } = buildGraphElements(data);
 
   return (
-    <div style={{ height: 400 }}>
-      <ReactFlow nodes={nodes} edges={edges} />
+    <div style={{ height: 520, border: "1px solid #ddd", borderRadius: 8 }}>
+      <ReactFlow nodes={nodes} edges={edges} fitView />
     </div>
   );
 }

@@ -1,82 +1,268 @@
-import { callFeatherless } from "./featherless.js";
 import { getMarketData } from "./brightdata.js";
 
-export async function runDecisionEngine(question) {
-  let options = [];
+const DEFAULT_OPTIONS = ["Big Data", "Cloud Computing", "Data Science"];
+const ELIMINATION_THRESHOLD = 7;
 
-  // 🔹 Try AI-based option generation
-  try {
-    const text = await callFeatherless(
-      `Give 3 short options for: ${question}`
-    );
+function toTitleCase(value) {
+  return value
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
 
-    options = text
-      .split("\n")
-      .map(o => o.replace(/^\d+\.\s*/, "").trim())
-      .filter(o => o.length > 0);
-  } catch (err) {
-    console.log("Featherless failed, using fallback");
+function normalizeOption(raw) {
+  const cleaned = raw
+    .replace(/[?.,!]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return "";
+
+  const map = {
+    ml: "Machine Learning",
+    dl: "Deep Learning",
+    ai: "Artificial Intelligence",
+    ds: "Data Science",
+    cv: "Computer Vision",
+    nlp: "Natural Language Processing"
+  };
+
+  const lower = cleaned.toLowerCase();
+  if (map[lower]) return map[lower];
+
+  return toTitleCase(cleaned);
+}
+
+function extractOptionsFromQuestion(question) {
+  if (!question || typeof question !== "string") {
+    return DEFAULT_OPTIONS;
   }
 
-  // 🔹 Fallback options (IMPORTANT)
-  if (options.length === 0) {
-    options = ["AI", "Web Development", "Data Science"];
+  const compactQuestion = question.replace(/\s+/g, " ").trim();
+
+  const directCompareMatch = compactQuestion.match(
+    /(.+?)\s*(?:vs\.?|versus|or)\s*(.+?)(?:\s+(?:for|with|in|which|what|is|are|should|best|better)\b|$)/i
+  );
+
+  const betweenCompareMatch = compactQuestion.match(
+    /between\s+(.+?)\s+and\s+(.+?)(?:\s+(?:for|with|in|which|what|is|are|should|best|better)\b|$)/i
+  );
+
+  const comparatorSplit = [];
+
+  if (directCompareMatch) {
+    comparatorSplit.push(directCompareMatch[1], directCompareMatch[2]);
+  } else if (betweenCompareMatch) {
+    comparatorSplit.push(betweenCompareMatch[1], betweenCompareMatch[2]);
   }
 
-  let results = [];
+  const normalized = comparatorSplit
+    .map((part) => normalizeOption(part))
+    .filter((part) => part.length >= 2);
 
-  for (let option of options) {
-    let score = 5;
-    let evaluation = "";
-
-    try {
-      const data = await getMarketData(option);
-
-      const evalText = await callFeatherless(
-        `Evaluate ${option}. Give score from 1 to 10 with reason.`
-      );
-
-      const match = evalText.match(/\d+/);
-      score = match ? parseInt(match[0]) : 5;
-
-      evaluation = evalText;
-    } catch (err) {
-      // 🔹 Fallback scoring
-      score = Math.floor(Math.random() * 10) + 1;
-      evaluation = "Fallback evaluation (API not available)";
+  const unique = [];
+  for (const option of normalized) {
+    if (!unique.some((existing) => existing.toLowerCase() === option.toLowerCase())) {
+      unique.push(option);
     }
-
-    results.push({
-      name: option,
-      score,
-      evaluation,
-      status: score >= 6 ? "considered" : "eliminated"
-    });
   }
 
-  // 🔹 Safety check
-  if (results.length === 0) {
+  if (unique.length >= 2) {
+    return unique.slice(0, 4);
+  }
+
+  return DEFAULT_OPTIONS;
+}
+
+function scoreFromSnippets(snippets) {
+  const text = snippets.join(" ").toLowerCase();
+
+  const positiveSignals = [
+    "high demand",
+    "in demand",
+    "strong demand",
+    "hiring surge",
+    "growing",
+    "growth",
+    "expanding",
+    "rising",
+    "future proof",
+    "skills gap"
+  ];
+
+  const negativeSignals = [
+    "low demand",
+    "declining",
+    "oversaturated",
+    "layoffs",
+    "shrinking",
+    "downturn",
+    "limited openings",
+    "stagnant"
+  ];
+
+  const positiveHits = positiveSignals.reduce(
+    (count, phrase) => count + (text.includes(phrase) ? 1 : 0),
+    0
+  );
+
+  const negativeHits = negativeSignals.reduce(
+    (count, phrase) => count + (text.includes(phrase) ? 1 : 0),
+    0
+  );
+
+  const confidenceBoost = Math.min(2, Math.floor(snippets.length / 3));
+  const raw = 5 + positiveHits - negativeHits + confidenceBoost;
+  const score = Math.max(1, Math.min(10, raw));
+
+  return {
+    score,
+    positiveHits,
+    negativeHits
+  };
+}
+
+function buildTradeoffs(option, scoreInfo, evidence) {
+  const pros = [];
+  const cons = [];
+
+  if (scoreInfo.positiveHits >= 2) {
+    pros.push("Strong positive market signals in live search results");
+  } else if (scoreInfo.positiveHits === 1) {
+    pros.push("Some positive growth indicators are present");
+  }
+
+  if (scoreInfo.negativeHits >= 2) {
+    cons.push("Multiple negative signals indicate near-term risk");
+  } else if (scoreInfo.negativeHits === 1) {
+    cons.push("At least one cautionary market signal was detected");
+  }
+
+  if (evidence.length > 0) {
+    pros.push(`Evidence available from ${evidence.length} live snippet(s)`);
+  }
+
+  if (pros.length === 0) {
+    pros.push(`No strong upside signals found for ${option}`);
+  }
+
+  if (cons.length === 0) {
+    cons.push("No major downside signals were found");
+  }
+
+  return { pros, cons };
+}
+
+function buildReasoningNode(result) {
+  return {
+    name: `${result.name} (${result.score})`,
+    status: result.status,
+    children: [
+      {
+        name: "Signals",
+        children: [
+          { name: `Positive signals: ${result.signalSummary.positiveHits}` },
+          { name: `Negative signals: ${result.signalSummary.negativeHits}` }
+        ]
+      },
+      {
+        name: "Tradeoffs",
+        children: [
+          {
+            name: "Pros",
+            children: result.tradeoffs.pros.map((item) => ({ name: item }))
+          },
+          {
+            name: "Cons",
+            children: result.tradeoffs.cons.map((item) => ({ name: item }))
+          }
+        ]
+      },
+      {
+        name:
+          result.status === "eliminated"
+            ? `Eliminated: ${result.eliminationReason}`
+            : "Retained as a viable path"
+      }
+    ]
+  };
+}
+
+async function evaluateOption(option, question) {
+  const marketQuery = `${option} ${question} jobs demand trend 2026`;
+
+  try {
+    const marketData = await getMarketData(marketQuery);
+    const scoreInfo = scoreFromSnippets(marketData.snippets);
+    const tradeoffs = buildTradeoffs(option, scoreInfo, marketData.snippets.slice(0, 2));
+    const status = scoreInfo.score >= ELIMINATION_THRESHOLD ? "considered" : "eliminated";
+
     return {
-      question,
-      options: [],
-      best: { name: "No valid options" },
-      graph: { name: "Start", children: [] }
+      name: option,
+      score: scoreInfo.score,
+      evaluation: `Live web analysis (${marketData.provider})`,
+      status,
+      source: marketData.provider,
+      evidence: marketData.snippets.slice(0, 2),
+      tradeoffs,
+      signalSummary: {
+        positiveHits: scoreInfo.positiveHits,
+        negativeHits: scoreInfo.negativeHits
+      },
+      eliminationReason:
+        status === "eliminated"
+          ? `Score ${scoreInfo.score} is below threshold ${ELIMINATION_THRESHOLD}`
+          : "",
+      warnings: marketData.warnings || []
+    };
+  } catch (err) {
+    console.log("Bright Data error:", err.message);
+    return {
+      name: option,
+      score: 1,
+      evaluation: "No live data available",
+      status: "eliminated",
+      source: "none",
+      evidence: [],
+      tradeoffs: {
+        pros: ["Option is still captured for completeness"],
+        cons: ["Could not fetch live data to support this path"]
+      },
+      signalSummary: {
+        positiveHits: 0,
+        negativeHits: 1
+      },
+      eliminationReason: "Live market evidence could not be fetched",
+      warnings: [err.message]
     };
   }
+}
 
-  // 🔹 Safe reduce
-  const best = results.reduce(
-    (a, b) => (a.score > b.score ? a : b),
-    results[0]
-  );
+export async function runDecisionEngine(question) {
+  const options = extractOptionsFromQuestion(question);
+  const results = await Promise.all(options.map((option) => evaluateOption(option, question)));
+
+  const best = results.reduce((a, b) => (a.score > b.score ? a : b));
+  const eliminations = results
+    .filter((item) => item.status === "eliminated")
+    .map((item) => ({ name: item.name, reason: item.eliminationReason }));
+
+  const tradeoffs = results.map((item) => ({
+    name: item.name,
+    pros: item.tradeoffs.pros,
+    cons: item.tradeoffs.cons
+  }));
 
   return {
     question,
     options: results,
+    tradeoffs,
+    eliminations,
     best,
     graph: {
       name: "Start",
-      children: results
+      children: results.map((result) => buildReasoningNode(result))
     }
   };
 }
