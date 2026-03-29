@@ -1,0 +1,213 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap");
+
+:root {
+  --bg: #f5f7fb;
+  --panel: #ffffff;
+  --text: #1f2a37;
+  --muted: #5c6875;
+  --line: #d7dde7;
+  --primary: #0f6dff;
+  --primary-dark: #0a57cf;
+  --success: #0f8a4b;
+  --danger: #c62828;
+  --warning-bg: #fff4e6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  background: radial-gradient(circle at 0% 0%, #e9f0ff, var(--bg) 50%);
+  color: var(--text);
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 24px 14px;
+}
+
+.app-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.hero-card,
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(9, 25, 61, 0.05);
+}
+
+.hero-card {
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.hero-card h1 {
+  margin: 0;
+  font-size: 1.55rem;
+}
+
+.hero-card p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.input-row input {
+  flex: 1;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.96rem;
+}
+
+.input-row input:focus {
+  outline: 2px solid rgba(15, 109, 255, 0.18);
+  border-color: var(--primary);
+}
+
+.input-row button {
+  border: 0;
+  border-radius: 10px;
+  padding: 0 16px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.input-row button:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.input-row button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.error-text {
+  color: var(--danger);
+  margin-top: 12px;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.panel {
+  padding: 16px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+
+.panel h3 {
+  margin: 14px 0 8px;
+  font-size: 1rem;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.decision-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+.muted-text {
+  color: var(--muted);
+}
+
+.narrative-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.list-block {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: grid;
+  gap: 9px;
+}
+
+.item-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fcfdff;
+}
+
+.item-card strong {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-right: 6px;
+}
+
+.status {
+  display: inline-block;
+  font-size: 0.78rem;
+  border-radius: 100px;
+  padding: 2px 8px;
+  border: 1px solid transparent;
+}
+
+.status.considered {
+  color: var(--success);
+  border-color: rgba(15, 138, 75, 0.25);
+  background: rgba(15, 138, 75, 0.07);
+}
+
+.status.eliminated {
+  color: var(--danger);
+  border-color: rgba(198, 40, 40, 0.24);
+  background: rgba(198, 40, 40, 0.08);
+}
+
+.sub-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: #45515f;
+}
+
+.warning {
+  background: var(--warning-bg);
+}
+
+@media (max-width: 860px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .input-row {
+    flex-direction: column;
+  }
+
+  .input-row button {
+    min-height: 40px;
+  }
+}

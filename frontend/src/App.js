@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Graph from "./Graph";
+import "./App.css";
 
 function App() {
   const [question, setQuestion] = useState("");
@@ -56,101 +57,121 @@ function App() {
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>Decision Graph Engine</h2>
+    <div className="app-shell">
+      <div className="app-container">
+        <header className="hero-card">
+          <h1>Decision Graph Engine</h1>
+          <p>Ask a comparison question and get evidence-backed reasoning.</p>
 
-      <input
-        value={question}
-        onChange={(e) => setQuestion(e.target.value)}
-        placeholder="Enter your question"
-      />
+          <div className="input-row">
+            <input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Try: dl vs ml for jobs and salary"
+            />
+            <button onClick={handleSubmit} disabled={loading || !question.trim()}>
+              {loading ? "Analyzing..." : "Analyze"}
+            </button>
+          </div>
 
-      <button onClick={handleSubmit}>Analyze</button>
+          {!loading && error && <p className="error-text">{error}</p>}
+        </header>
 
-      {loading && <p>Analyzing...</p>}
-      {!loading && error && <p style={{ color: "crimson" }}>{error}</p>}
+        {data && (
+          <div className="results-grid">
+            <section className="panel">
+              <h2>Final Decision</h2>
+              <p className="decision-title">{data.best?.name || "No decision"}</p>
+              <p className="muted-text">
+                Score: {data.best?.score ?? 0} | Source: {data.best?.source || "unknown"}
+              </p>
 
-      {data && (
-        <>
-          <h3>Final Decision: {data.best?.name || "No decision"}</h3>
-          <p>
-            Score: {data.best?.score ?? 0} | Source: {data.best?.source || "unknown"}
-          </p>
+              {data.finalNarrative && (
+                <>
+                  <h3>Final Explanation ({data.narrativeProvider})</h3>
+                  <p className="narrative-text">{data.finalNarrative}</p>
+                </>
+              )}
+            </section>
 
-          {data.finalNarrative && (
-            <>
-              <h4>Final Explanation ({data.narrativeProvider})</h4>
-              <p style={{ whiteSpace: "pre-wrap" }}>{data.finalNarrative}</p>
-            </>
-          )}
-
-          <h4>Options</h4>
-          {data.options.length === 0 ? (
-            <p>No options generated for this question.</p>
-          ) : (
-            <ul>
-              {data.options.map((option) => (
-                <li key={option.name}>
-                  <strong>{option.name}</strong> - Score {option.score} - {option.status}
-                  {option.evidence?.length > 0 && (
-                    <ul>
-                      {option.evidence.map((item, index) => (
-                        <li key={`${option.name}-evidence-${index}`}>{item}</li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <h4>Tradeoffs</h4>
-          {data.tradeoffs.length === 0 ? (
-            <p>No tradeoff data available.</p>
-          ) : (
-            <ul>
-              {data.tradeoffs.map((item) => (
-                <li key={`tradeoff-${item.name}`}>
-                  <strong>{item.name}</strong>
-                  <div>Pros: {(item.pros || []).join(" | ")}</div>
-                  <div>Cons: {(item.cons || []).join(" | ")}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <h4>Eliminations</h4>
-          {data.eliminations.length === 0 ? (
-            <p>No option was eliminated.</p>
-          ) : (
-            <ul>
-              {data.eliminations.map((item) => (
-                <li key={`elim-${item.name}`}>
-                  <strong>{item.name}</strong>: {item.reason}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {data.options.some((option) => option.warnings?.length > 0) && (
-            <>
-              <h4>Warnings</h4>
-              <ul>
-                {data.options
-                  .filter((option) => option.warnings?.length > 0)
-                  .map((option) => (
-                    <li key={`warn-${option.name}`}>
-                      <strong>{option.name}</strong>: {option.warnings.join(" | ")}
+            <section className="panel">
+              <h2>Options</h2>
+              {data.options.length === 0 ? (
+                <p className="muted-text">No options generated for this question.</p>
+              ) : (
+                <ul className="list-block">
+                  {data.options.map((option) => (
+                    <li key={option.name} className="item-card">
+                      <strong>{option.name}</strong>
+                      <span className="badge">Score {option.score}</span>
+                      <span className={`status ${option.status}`}>{option.status}</span>
+                      {option.evidence?.length > 0 && (
+                        <ul className="sub-list">
+                          {option.evidence.map((item, index) => (
+                            <li key={`${option.name}-evidence-${index}`}>{item}</li>
+                          ))}
+                        </ul>
+                      )}
                     </li>
                   ))}
-              </ul>
-            </>
-          )}
+                </ul>
+              )}
+            </section>
 
-          <h4>Graph/Tree of Reasoning Paths</h4>
-          <Graph data={data.graph} />
-        </>
-      )}
+            <section className="panel">
+              <h2>Tradeoffs</h2>
+              {data.tradeoffs.length === 0 ? (
+                <p className="muted-text">No tradeoff data available.</p>
+              ) : (
+                <ul className="list-block">
+                  {data.tradeoffs.map((item) => (
+                    <li key={`tradeoff-${item.name}`} className="item-card">
+                      <strong>{item.name}</strong>
+                      <div>Pros: {(item.pros || []).join(" | ")}</div>
+                      <div>Cons: {(item.cons || []).join(" | ")}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="panel">
+              <h2>Eliminations</h2>
+              {data.eliminations.length === 0 ? (
+                <p className="muted-text">No option was eliminated.</p>
+              ) : (
+                <ul className="list-block">
+                  {data.eliminations.map((item) => (
+                    <li key={`elim-${item.name}`} className="item-card">
+                      <strong>{item.name}</strong>: {item.reason}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {data.options.some((option) => option.warnings?.length > 0) && (
+              <section className="panel full-width">
+                <h2>Warnings</h2>
+                <ul className="list-block">
+                  {data.options
+                    .filter((option) => option.warnings?.length > 0)
+                    .map((option) => (
+                      <li key={`warn-${option.name}`} className="item-card warning">
+                        <strong>{option.name}</strong>: {option.warnings.join(" | ")}
+                      </li>
+                    ))}
+                </ul>
+              </section>
+            )}
+
+            <section className="panel full-width">
+              <h2>Graph / Reasoning Tree</h2>
+              <Graph data={data.graph} />
+            </section>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -66,7 +66,15 @@ function Graph({ data }) {
   const { nodes, edges } = buildGraphElements(data);
 
   return (
-    <div style={{ height: 520, border: "1px solid #ddd", borderRadius: 8 }}>
+    <div
+      style={{
+        height: 520,
+        border: "1px solid #d7dde7",
+        borderRadius: 12,
+        overflow: "hidden",
+        background: "#fbfdff"
+      }}
+    >
       <ReactFlow nodes={nodes} edges={edges} fitView />
     </div>
   );
