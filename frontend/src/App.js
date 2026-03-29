@@ -20,7 +20,9 @@ function App() {
       tradeoffs,
       eliminations,
       best,
-      graph
+      graph,
+      finalNarrative: result?.finalNarrative || "",
+      narrativeProvider: result?.narrativeProvider || "rules"
     };
   }
 
@@ -74,6 +76,13 @@ function App() {
           <p>
             Score: {data.best?.score ?? 0} | Source: {data.best?.source || "unknown"}
           </p>
+
+          {data.finalNarrative && (
+            <>
+              <h4>Final Explanation ({data.narrativeProvider})</h4>
+              <p style={{ whiteSpace: "pre-wrap" }}>{data.finalNarrative}</p>
+            </>
+          )}
 
           <h4>Options</h4>
           {data.options.length === 0 ? (

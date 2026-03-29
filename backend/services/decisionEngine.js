@@ -1,4 +1,5 @@
 import { getMarketData } from "./brightdata.js";
+import { callFeatherless } from "./featherless.js";
 
 const DEFAULT_OPTIONS = ["Big Data", "Cloud Computing", "Data Science"];
 const ELIMINATION_THRESHOLD = 7;
@@ -239,6 +240,54 @@ async function evaluateOption(option, question) {
   }
 }
 
+async function generateFinalNarrative(question, results, best, eliminations) {
+  const evidenceLines = results
+    .map((item) => {
+      const snippets = (item.evidence || []).slice(0, 1).join(" || ");
+      return `Option: ${item.name}; Score: ${item.score}; Status: ${item.status}; Pros: ${(item.tradeoffs?.pros || []).join("; ")}; Cons: ${(item.tradeoffs?.cons || []).join("; ")}; Evidence: ${snippets}`;
+    })
+    .join("\n");
+
+  const eliminationLine =
+    eliminations.length === 0
+      ? "No option was eliminated."
+      : eliminations.map((item) => `${item.name}: ${item.reason}`).join(" | ");
+
+  const prompt = [
+    "You are helping a decision graph engine provide a concise final decision summary.",
+    `Question: ${question}`,
+    `Winning option: ${best.name} with score ${best.score}`,
+    `Eliminations: ${eliminationLine}`,
+    "Use only the provided evidence and do not invent facts.",
+    "Return 4 short sections: Final Decision, Why It Won, Key Tradeoffs, Caution.",
+    "Evidence:",
+    evidenceLines
+  ].join("\n");
+
+  try {
+    const text = await callFeatherless(prompt);
+    if (text && text.trim().length > 0) {
+      return {
+        text: text.trim(),
+        provider: "featherless",
+        warning: ""
+      };
+    }
+
+    return {
+      text: `Final Decision: ${best.name}. It has the highest evidence-based score (${best.score}) across explored options.`,
+      provider: "rules",
+      warning: "Featherless returned empty output"
+    };
+  } catch (err) {
+    return {
+      text: `Final Decision: ${best.name}. It has the highest evidence-based score (${best.score}) across explored options.`,
+      provider: "rules",
+      warning: `Featherless unavailable: ${err.message}`
+    };
+  }
+}
+
 export async function runDecisionEngine(question) {
   const options = extractOptionsFromQuestion(question);
   const results = await Promise.all(options.map((option) => evaluateOption(option, question)));
@@ -254,12 +303,22 @@ export async function runDecisionEngine(question) {
     cons: item.tradeoffs.cons
   }));
 
+  const summary = await generateFinalNarrative(question, results, best, eliminations);
+
+  if (summary.warning) {
+    results.forEach((item) => {
+      item.warnings = [...(item.warnings || []), summary.warning];
+    });
+  }
+
   return {
     question,
     options: results,
     tradeoffs,
     eliminations,
     best,
+    finalNarrative: summary.text,
+    narrativeProvider: summary.provider,
     graph: {
       name: "Start",
       children: results.map((result) => buildReasoningNode(result))
